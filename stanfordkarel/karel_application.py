@@ -14,6 +14,7 @@ from __future__ import annotations
 import importlib.util
 import inspect
 import tkinter as tk
+from tokenize import tabsize
 import traceback as tb
 from pathlib import Path
 from time import sleep
@@ -29,6 +30,9 @@ from .karel_program import KarelException, KarelProgram
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+class Speed:
+    def get(self) -> int:
+        return 85
 
 class StudentModule(ModuleType):
     move: Any
@@ -88,6 +92,15 @@ class StudentCode:
             raise RuntimeError(
                 "Couldn't find the main() function. Are you sure you have one?"
             )
+
+    @classmethod
+    def from_text(cls, code: str) -> StudentCode:
+        """
+        This method is used to create a StudentCode object from a string of code.
+        """
+        code_file = Path("temp.py")
+        code_file.write_text(code)
+        return cls(code_file)
 
     def __repr__(self) -> str:
         return "\n".join([inspect.getsource(mod) for mod in self.mods])
@@ -153,7 +166,7 @@ class StudentCode:
         display_frames_generator = (frame for frame in display_frames)
         trace = tb.format_list(tb.StackSummary.extract(display_frames_generator))
         clean_traceback = "".join(trace).strip()
-        add_did_you_mean(e)
+        # add_did_you_mean(e)
         print(
             f"Traceback (most recent call last):\n{clean_traceback}\n"
             f"{type(e).__name__}: {e}"
@@ -186,11 +199,6 @@ class KarelApplication(tk.Frame):
         self.karel = karel
         self.world = karel.world
         self.code_file = code_file
-        self.load_student_code()
-        master.title(self.student_code.module_name)
-        if not self.student_code.mods:
-            master.destroy()
-            return
         self.icon = DEFAULT_ICON
         self.window_width = window_width
         self.window_height = window_height
@@ -204,9 +212,18 @@ class KarelApplication(tk.Frame):
         self.create_buttons()
         self.create_slider()
         self.create_status_label()
+        self.load_student_code()
+        master.title(self.student_code.module_name)
+        if not self.student_code.mods:
+            master.destroy()
+            return
+        self.program_counter = 0
+        with open("programs.txt") as f:
+            self.programs = f.read().split("\n=====\n")
 
     def load_student_code(self) -> None:
-        self.student_code = StudentCode(self.code_file)
+        self.student_code = StudentCode.from_text(self.text_area.get("1.0", "end-1c"))
+        print(self.student_code)
         self.student_code.inject_namespace(self.karel)
         self.inject_decorator_namespace()
 
@@ -240,25 +257,26 @@ class KarelApplication(tk.Frame):
         two labels on either side of a scale slider to control
         Karel execution speed.
         """
-        self.slider_frame = tk.Frame(self, bg=LIGHT_GREY)
-        self.slider_frame.grid(row=3, column=0, padx=PAD_X, pady=PAD_Y, sticky="ew")
+        # self.slider_frame = tk.Frame(self, bg=LIGHT_GREY)
+        # self.slider_frame.grid(row=3, column=0, padx=PAD_X, pady=PAD_Y, sticky="ew")
 
-        self.fast_label = tk.Label(self.slider_frame, text="Fast", bg=LIGHT_GREY)
-        self.fast_label.pack(side="right")
+        # self.fast_label = tk.Label(self.slider_frame, text="Fast", bg=LIGHT_GREY)
+        # self.fast_label.pack(side="right")
 
-        self.slow_label = tk.Label(self.slider_frame, text="Slow", bg=LIGHT_GREY)
-        self.slow_label.pack(side="left")
+        # self.slow_label = tk.Label(self.slider_frame, text="Slow", bg=LIGHT_GREY)
+        # self.slow_label.pack(side="left")
 
-        self.speed = tk.DoubleVar()
+        # self.speed = tk.DoubleVar()
 
-        self.scale = tk.Scale(
-            self.slider_frame,
-            orient=tk.HORIZONTAL,
-            variable=self.speed,
-            showvalue=False,
-        )
-        self.scale.set(self.world.init_speed)
-        self.scale.pack()
+        # self.scale = tk.Scale(
+        #     self.slider_frame,
+        #     orient=tk.HORIZONTAL,
+        #     variable=self.speed,
+        #     showvalue=False,
+        # )
+        # self.scale.set(self.world.init_speed)
+        # self.scale.pack()
+        self.speed = Speed()
 
     def create_canvas(self) -> None:
         """This method creates the canvas on which Karel and the world are drawn."""
@@ -288,15 +306,28 @@ class KarelApplication(tk.Frame):
         self.program_control_button["text"] = "Run Program"
         self.program_control_button["command"] = self.run_program
         self.program_control_button.grid(
-            column=0, row=0, padx=PAD_X, pady=PAD_Y, sticky="ew"
+            column=0, row=0, padx=PAD_X, pady=PAD_Y
         )
 
-        self.load_world_button = tk.Button(
-            self, highlightthickness=0, text="Load World", command=self.load_world
+        self.next_button = tk.Button(
+            self, highlightthickness=0, text="Next", command=self.next_program
         )
-        self.load_world_button.grid(
-            column=0, row=2, padx=PAD_X, pady=PAD_Y, sticky="ew"
+        self.next_button.grid(
+            column=2, row=0, padx=PAD_X, pady=PAD_Y
         )
+
+        self.back_button = tk.Button(
+            self, highlightthickness=0, text="Back", command=self.back_program
+        )
+        self.back_button.grid(
+            column=1, row=0, padx=PAD_X, pady=PAD_Y
+        )
+
+        self.text_area = tk.Text(self, wrap=tk.WORD, width=30, height=22, tabs="4c", font=("Courier New", 18))
+        self.text_area.insert("1.0", "def main():\n    move()\n") 
+        self.text_area.grid(column=0, row=4, columnspan=3, padx=PAD_X, pady=PAD_Y, sticky="ew")
+        # text_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
 
     def create_status_label(self) -> None:
         """This function creates the status label at the bottom of the window."""
@@ -363,15 +394,17 @@ class KarelApplication(tk.Frame):
 
     def disable_buttons(self) -> None:
         self.program_control_button.configure(state="disabled")
-        self.load_world_button.configure(state="disabled")
+        self.next_button.configure(state="disabled")
+        self.back_button.configure(state="disabled")
 
     def enable_buttons(self) -> None:
         self.program_control_button.configure(state="normal")
-        self.load_world_button.configure(state="normal")
+        self.next_button.configure(state="normal")
+        self.back_button.configure(state="normal")
 
     def run_program(self) -> None:
         # Error checking for existence of main function completed in prior file
-
+        self.reset_world()
         # reimport code in case it changed
         self.load_student_code()
         try:
@@ -380,14 +413,14 @@ class KarelApplication(tk.Frame):
             self.student_code.main()
             self.status_label.configure(text="Finished running.", fg="green")
 
-        except (KarelException, NameError):
+        except (KarelException, NameError) as e:
             # Generate popup window to let the user know their program crashed
             self.status_label.configure(
-                text="Program crashed, check console for details.", fg="red"
+                text=f"{e}.", fg="red"
             )
             self.update()
             showwarning(
-                "Karel Error", "Karel Crashed!\nCheck the terminal for more details."
+                "Karel Error", f"Karel Crashed!\n{e}."
             )
 
         finally:
@@ -407,26 +440,20 @@ class KarelApplication(tk.Frame):
         self.program_control_button["command"] = self.run_program
         self.update()
 
-    def load_world(self) -> None:
-        default_worlds_path = Path(__file__).absolute().parent / "worlds"
-        filename = askopenfilename(
-            initialdir=default_worlds_path,
-            title="Select Karel World",
-            filetypes=[("Karel Worlds", "*.w")],
-            parent=self.master,
-        )
-        # User hit cancel and did not select file, so leave world as-is
-        if not filename:
-            return
-        self.world.reload_world(filename=filename)
-        self.karel.reset_state()
-        self.canvas.redraw_all()
-        # Reset speed slider
-        self.scale.set(self.world.init_speed)
-        self.status_label.configure(
-            text=f"Loaded world from {Path(filename).name}.", fg="black"
-        )
+    def next_program(self) -> None:
+        if self.program_counter < len(self.programs):
+            next_code = self.programs[self.program_counter]
+            self.text_area.delete("1.0", "end")
+            self.text_area.insert("1.0", next_code)
+            self.program_counter += 1
+            self.program_control_button["text"] = "Run Program"
+            self.program_control_button["command"] = self.run_program
 
-        # Make sure program control button is set to 'run' mode
-        self.program_control_button["text"] = "Run Program"
-        self.program_control_button["command"] = self.run_program
+    def back_program(self) -> None:
+        if self.program_counter > 0:
+            self.program_counter -= 1
+            next_code = self.programs[self.program_counter]
+            self.text_area.delete("1.0", "end")
+            self.text_area.insert("1.0", next_code)
+            self.program_control_button["text"] = "Run Program"
+            self.program_control_button["command"] = self.run_program

@@ -34,7 +34,7 @@ DIRECTION_TO_RADIANS = {
 
 # Karel Application + World Editor
 DEFAULT_ICON = "karel"
-PAD_X = 75
+PAD_X = 10
 PAD_Y = 10
 LIGHT_GREY = "#e5e5e5"
 
