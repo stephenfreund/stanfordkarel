@@ -30,9 +30,11 @@ from .karel_program import KarelException, KarelProgram
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+
 class Speed:
     def get(self) -> int:
         return 85
+
 
 class StudentModule(ModuleType):
     move: Any
@@ -305,29 +307,26 @@ class KarelApplication(tk.Frame):
         )
         self.program_control_button["text"] = "Run Program"
         self.program_control_button["command"] = self.run_program
-        self.program_control_button.grid(
-            column=0, row=0, padx=PAD_X, pady=PAD_Y
-        )
+        self.program_control_button.grid(column=0, row=0, padx=PAD_X, pady=PAD_Y)
 
         self.next_button = tk.Button(
             self, highlightthickness=0, text="Next", command=self.next_program
         )
-        self.next_button.grid(
-            column=2, row=0, padx=PAD_X, pady=PAD_Y
-        )
+        self.next_button.grid(column=2, row=0, padx=PAD_X, pady=PAD_Y)
 
         self.back_button = tk.Button(
             self, highlightthickness=0, text="Back", command=self.back_program
         )
-        self.back_button.grid(
-            column=1, row=0, padx=PAD_X, pady=PAD_Y
+        self.back_button.grid(column=1, row=0, padx=PAD_X, pady=PAD_Y)
+
+        self.text_area = tk.Text(
+            self, wrap=tk.WORD, width=30, height=22, tabs="1c", font=("Courier New", 18)
         )
-
-        self.text_area = tk.Text(self, wrap=tk.WORD, width=30, height=22, tabs="4c", font=("Courier New", 18))
-        self.text_area.insert("1.0", "def main():\n    move()\n") 
-        self.text_area.grid(column=0, row=4, columnspan=3, padx=PAD_X, pady=PAD_Y, sticky="ew")
+        self.text_area.insert("1.0", "def main():\n\tmove()\n")
+        self.text_area.grid(
+            column=0, row=4, columnspan=3, padx=PAD_X, pady=PAD_Y, sticky="ew"
+        )
         # text_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
 
     def create_status_label(self) -> None:
         """This function creates the status label at the bottom of the window."""
@@ -415,13 +414,9 @@ class KarelApplication(tk.Frame):
 
         except (KarelException, NameError) as e:
             # Generate popup window to let the user know their program crashed
-            self.status_label.configure(
-                text=f"{e}.", fg="red"
-            )
+            self.status_label.configure(text=f"{e}.", fg="red")
             self.update()
-            showwarning(
-                "Karel Error", f"Karel Crashed!\n{e}."
-            )
+            showwarning("Karel Error", f"Karel Crashed!\n{e}.")
 
         finally:
             # Update program control button to force user
